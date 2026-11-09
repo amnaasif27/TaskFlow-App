@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskFlow – Task & Project Dashboard</title>
+
+<style>
+/* =====================================================
+   1. THEME VARIABLES
+   Colors are stored as CSS variables. Switching
+   data-theme="dark" on <html> swaps them all at once.
+   ===================================================== */
+:root {
+  --bg: #f1f5f9;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --primary: #6366f1;
+  --primary-dark: #4f46e5;
+  --low: #10b981;
+  --medium: #f59e0b;
+  --high: #ef4444;
+  --shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+  --radius: 16px;
+}
+[data-theme="dark"] {
+  --bg: #0b1120;
+  --surface: #151e32;
+  --surface-2: #1c2740;
+  --text: #e8edf7;
+  --muted: #94a3b8;
+  --border: #26324d;
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* =====================================================
+   2. BASE STYLES
+   ===================================================== */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  transition: background 0.3s, color 0.3s;
+  min-height: 100vh;
+}
+button { font-family: inherit; cursor: pointer; border: none; }
+input, select, textarea {
+  font-family: inherit; font-size: 0.95rem; color: var(--text);
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; width: 100%; outline: none;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+/* =====================================================
+   3. LAYOUT: sidebar + main area (CSS Grid)
+   ===================================================== */
+.app { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
+
+.sidebar {
+  background: var(--surface); border-right: 1px solid var(--border);
+  padding: 24px 16px; position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  transition: transform 0.3s;
+}
+.logo { display: flex; align-items: center; gap: 10px; font-size: 1.35rem; font-weight: 800; margin-bottom: 28px; padding: 0 8px; }
+.logo span.badge {
+  width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--primary), #a855f7); color: #fff; font-size: 1.2rem;
+}
+.nav-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 18px 8px 8px; }
+.nav-item {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  padding: 10px 12px; border-radius: 10px; background: transparent; color: var(--text);
+  font-size: 0.95rem; margin-bottom: 4px; transition: background 0.2s, transform 0.2s;
+}
+.nav-item:hover { background: var(--surface-2); transform: translateX(3px); }
+.nav-item.active { background: var(--primary); color: #fff; }
+.nav-item .count { font-size: 0.75rem; background: rgba(148,163,184,0.25); padding: 2px 8px; border-radius: 20px; }
+.nav-item.active .count { background: rgba(255,255,255,0.25); }
+
+.main { padding: 24px 32px 48px; min-width: 0; }
+
+/* Top bar */
+.topbar { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
+.topbar h1 { font-size: 1.6rem; flex: 1; }
+.topbar .date { color: var(--muted); font-size: 0.9rem; display: block; font-weight: 400; margin-top: 2px; }
+.icon-btn {
+  width: 42px; height: 42px; border-radius: 12px; background: var(--surface);
+  border: 1px solid var(--border); color: var(--text); font-size: 1.1rem; box-shadow: var(--shadow);
+  transition: transform 0.2s;
+}
+.icon-btn:hover { transform: scale(1.08); }
+.menu-btn { display: none; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary), #8b5cf6); color: #fff;
+  padding: 11px 20px; border-radius: 12px; font-weight: 600; font-size: 0.95rem;
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4); transition: transform 0.2s, box-shadow 0.2s;
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(99, 102, 241, 0.5); }
+.btn-ghost { background: var(--surface-2); color: var(--text); padding: 11px 20px; border-radius: 12px; font-weight: 600; border: 1px solid var(--border); }
+
+/* =====================================================
+   4. STATISTICS BANNER
+   ===================================================== */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.stat-card {
+  background: var(--surface); border-radius: var(--radius); padding: 20px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  animation: fadeUp 0.5s ease both; transition: transform 0.25s;
+}
+.stat-card:hover { transform: translateY(-4px); }
+.stat-card .label { color: var(--muted); font-size: 0.85rem; display: flex; align-items: center; gap: 8px; }
+.stat-card .value { font-size: 2rem; font-weight: 800; margin-top: 6px; }
+.stat-card.total .value { color: var(--primary); }
+.stat-card.pending .value { color: var(--medium); }
+.stat-card.done .value { color: var(--low); }
+.stat-card.overdue .value { color: var(--high); }
+
+.progress-card {
+  background: var(--surface); border-radius: var(--radius); padding: 20px 24px;
+  box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 20px;
+}
+.progress-head { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: 600; }
+.progress-track { height: 14px; background: var(--surface-2); border-radius: 20px; overflow: hidden; border: 1px solid var(--border); }
+.progress-fill {
+  height: 100%; width: 0%; border-radius: 20px;
+  background: linear-gradient(90deg, var(--primary), #a855f7, var(--low));
+  transition: width 0.8s cubic-bezier(.22,1,.36,1);
+}
+
+/* =====================================================
+   5. CHARTS (pure CSS/SVG, no libraries)
+   ===================================================== */
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.chart-card { background: var(--surface); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); border: 1px solid var(--border); }
+.chart-card h3 { font-size: 1rem; margin-bottom: 14px; }
+.donut-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; justify-content: center; }
+.donut { width: 130px; height: 130px; transform: rotate(-90deg); }
+.donut circle { fill: none; stroke-width: 16; }
+.donut .bg { stroke: var(--surface-2); }
+.donut .fg { stroke: var(--low); stroke-linecap: round; transition: stroke-dasharray 0.8s ease; }
+.donut-center { position: relative; }
+.donut-center .pct { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 800; font-size: 1.4rem; }
+.legend div { font-size: 0.85rem; color: var(--muted); margin: 4px 0; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.bar-row { margin-bottom: 12px; }
+.bar-row .bar-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 5px; }
+.bar-track { height: 10px; background: var(--surface-2); border-radius: 10px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 10px; width: 0; transition: width 0.7s ease; }
+
+/* =====================================================
+   6. TOOLBAR (search + filters) and TASK LIST
+   ===================================================== */
+.toolbar { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+.search-box { position: relative; }
+.search-box input { padding-left: 38px; }
+.search-box::before { content: "🔍"; position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 0.9rem; }
+
+.task-list { display: flex; flex-direction: column; gap: 12px; }
+.task {
+  display: flex; align-items: flex-start; gap: 14px; background: var(--surface);
+  border: 1px solid var(--border); border-left: 5px solid var(--medium);
+  border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow);
+  animation: fadeUp 0.35s ease both; transition: transform 0.2s;
+}
+.task:hover { transform: translateX(4px); }
+.task.p-low { border-left-color: var(--low); }
+.task.p-medium { border-left-color: var(--medium); }
+.task.p-high { border-left-color: var(--high); }
+.task.completed .task-title { text-decoration: line-through; color: var(--muted); }
+.task.completed { opacity: 0.7; }
+.task.removing { animation: fadeOut 0.3s ease forwards; }
+
+.check { width: 24px; height: 24px; margin-top: 2px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+.task-body { flex: 1; min-width: 0; }
+.task-title { font-weight: 700; font-size: 1.02rem; word-break: break-word; }
+.task-desc { color: var(--muted); font-size: 0.9rem; margin-top: 4px; word-break: break-word; }
+.tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.tag { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); }
+.tag.priority-low { color: var(--low); border-color: var(--low); }
+.tag.priority-medium { color: var(--medium); border-color: var(--medium); }
+.tag.priority-high { color: var(--high); border-color: var(--high); }
+.tag.overdue { background: var(--high); color: #fff; border-color: var(--high); }
+.task-actions { display: flex; gap: 6px; }
+.task-actions button { background: var(--surface-2); border: 1px solid var(--border); width: 36px; height: 36px; border-radius: 10px; font-size: 0.95rem; transition: transform 0.2s; }
+.task-actions button:hover { transform: scale(1.12); }
+
+.empty { text-align: center; padding: 50px 20px; color: var(--muted); background: var(--surface); border: 2px dashed var(--border); border-radius: var(--radius); }
+.empty .big { font-size: 3rem; margin-bottom: 10px; }
+
+/* =====================================================
+   7. MODAL (Add / Edit form) and TOAST
+   ===================================================== */
+.overlay {
+  position: fixed; inset: 0; background: rgba(2, 6, 23, 0.6); backdrop-filter: blur(4px);
+  display: none; place-items: center; z-index: 50; padding: 16px;
+}
+.overlay.open { display: grid; }
+.modal {
+  background: var(--surface); width: 100%; max-width: 480px; border-radius: 20px;
+  padding: 26px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); animation: pop 0.3s ease;
+}
+.modal h2 { margin-bottom: 18px; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--muted); }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+.error { color: var(--high); font-size: 0.8rem; margin-top: 4px; display: none; }
+
+.toast {
+  position: fixed; bottom: 24px; right: 24px; background: var(--text); color: var(--bg);
+  padding: 12px 20px; border-radius: 12px; font-weight: 600; z-index: 100;
+  transform: translateY(100px); opacity: 0; transition: all 0.35s;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+
+/* =====================================================
+   8. ANIMATIONS
+   ===================================================== */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes fadeOut { to { opacity: 0; transform: translateX(40px); height: 0; padding: 0; margin: 0; } }
+@keyframes pop { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+
+/* =====================================================
+   9. RESPONSIVE DESIGN (tablet & phone)
+   ===================================================== */
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { position: fixed; z-index: 40; width: 260px; left: 0; transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); box-shadow: 0 0 40px rgba(0,0,0,0.4); }
+  .menu-btn { display: block; }
+  .main { padding: 18px 16px 40px; }
+  .toolbar { grid-template-columns: 1fr 1fr; }
+  .search-box { grid-column: 1 / -1; }
+}
+@media (max-width: 520px) {
+  .task { flex-wrap: wrap; }
+  .task-actions { width: 100%; justify-content: flex-end; }
+  .topbar h1 { font-size: 1.3rem; }
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+  <!-- ================= SIDEBAR NAVIGATION ================= -->
+  <aside class="sidebar" id="sidebar">
+    <div class="logo"><span class="badge">✓</span> TaskFlow</div>
+
+    <div class="nav-title">Views</div>
+    <!-- data-status tells JS which status filter to apply when clicked -->
+    <button class="nav-item active" data-status="all">📋 All Tasks <span class="count" id="cntAll">0</span></button>
+    <button class="nav-item" data-status="pending">⏳ Pending <span class="count" id="cntPending">0</span></button>
+    <button class="nav-item" data-status="completed">✅ Completed <span class="count" id="cntDone">0</span></button>
+    <button class="nav-item" data-status="overdue">🔥 Overdue <span class="count" id="cntOverdue">0</span></button>
+
+    <div class="nav-title">Quick Actions</div>
+    <button class="nav-item" id="clearDoneBtn">🧹 Clear Completed</button>
+    <button class="nav-item" id="resetBtn">♻️ Reset Demo Data</button>
+  </aside>
+
+  <!-- ================= MAIN CONTENT ================= -->
+  <main class="main">
+
+    <!-- Top bar: title, theme toggle, add button -->
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menuBtn" aria-label="Open menu">☰</button>
+      <h1 id="pageTitle">Dashboard <span class="date" id="todayDate"></span></h1>
+      <button class="icon-btn" id="themeBtn" aria-label="Toggle dark mode">🌙</button>
+      <button class="btn-primary" id="addBtn">+ New Task</button>
+    </header>
+
+    <!-- Statistics banner -->
+    <section class="stats">
+      <div class="stat-card total"><div class="label">📦 Total Tasks</div><div class="value" id="sTotal">0</div></div>
+      <div class="stat-card pending"><div class="label">⏳ Pending</div><div class="value" id="sPending">0</div></div>
+      <div class="stat-card done"><div class="label">✅ Completed</div><div class="value" id="sDone">0</div></div>
+      <div class="stat-card overdue"><div class="label">🔥 Overdue</div><div class="value" id="sOverdue">0</div></div>
+    </section>
+
+    <!-- Overall progress bar -->
+    <section class="progress-card">
+      <div class="progress-head"><span>Overall Progress</span><span id="progressText">0%</span></div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    </section>
+
+    <!-- Charts -->
+    <section class="charts">
+      <div class="chart-card">
+        <h3>Completion Rate</h3>
+        <div class="donut-wrap">
+          <div class="donut-center">
+            <svg class="donut" viewBox="0 0 120 120">
+              <circle class="bg" cx="60" cy="60" r="50"></circle>
+              <circle class="fg" id="donutFg" cx="60" cy="60" r="50" stroke-dasharray="0 314"></circle>
+            </svg>
+            <div class="pct" id="donutPct">0%</div>
+          </div>
+          <div class="legend">
+            <div><span class="dot" style="background:var(--low)"></span>Completed</div>
+            <div><span class="dot" style="background:var(--surface-2);border:1px solid var(--border)"></span>Remaining</div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-card"><h3>Tasks by Priority</h3><div id="priorityChart"></div></div>
+      <div class="chart-card"><h3>Tasks by Category</h3><div id="categoryChart"></div></div>
+    </section>
+
+    <!-- Search + filters -->
+    <section class="toolbar">
+      <div class="search-box"><input type="text" id="searchInput" placeholder="Search tasks by title or description..."></div>
+      <select id="categoryFilter"></select>
+      <select id="priorityFilter">
+        <option value="all">All Priorities</option>
+        <option value="High">High</option>
+        <option value="Medium">Medium</option>
+        <option value="Low">Low</option>
+      </select>
+      <select id="sortSelect">
+        <option value="newest">Sort: Newest</option>
+        <option value="due">Sort: Due Date</option>
+        <option value="priority">Sort: Priority</option>
+        <option value="title">Sort: A → Z</option>
+      </select>
+    </section>
+
+    <!-- Task list gets filled by JavaScript -->
+    <section class="task-list" id="taskList"></section>
+  </main>
+</div>
+
+<!-- ================= ADD / EDIT MODAL ================= -->
+<div class="overlay" id="overlay">
+  <form class="modal" id="taskForm" novalidate>
+    <h2 id="modalTitle">New Task</h2>
+    <div class="field">
+      <label for="fTitle">Title *</label>
+      <input type="text" id="fTitle" maxlength="80" placeholder="e.g. Finish assignment report">
+      <div class="error" id="titleError">Please enter a task title.</div>
+    </div>
+    <div class="field">
+      <label for="fDesc">Description</label>
+      <textarea id="fDesc" rows="3" maxlength="300" placeholder="Optional details..."></textarea>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="fPriority">Priority</label>
+        <select id="fPriority">
+          <option>Low</option><option selected>Medium</option><option>High</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="fCategory">Category</label>
+        <select id="fCategory">
+          <option>Study</option><option>Work</option><option>Personal</option><option>Project</option><option>Health</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="fDue">Due Date</label>
+      <input type="date" id="fDue">
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost" id="cancelBtn">Cancel</button>
+      <button type="submit" class="btn-primary" id="saveBtn">Save Task</button>
+    </div>
+  </form>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================
+   JAVASCRIPT – HOW THIS APP WORKS (for your presentation)
+   1. "tasks" is an array of objects. It is the single source of truth.
+   2. Every change (add/edit/delete/complete) updates the array,
+      saves it to localStorage, then calls render() to redraw the screen.
+   3. Filters (search, status, category, priority) only change what is
+      DISPLAYED – they never change the saved data.
+   ===================================================== */
+
+// ---------- 1. CONSTANTS & STATE ----------
+const STORAGE_KEY = "taskflow_tasks_v1";   // key name used in localStorage
+const THEME_KEY = "taskflow_theme";
+const CATEGORIES = ["Study", "Work", "Personal", "Project", "Health"];
+const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 };
+
+let tasks = [];                // all tasks live here
+let editingId = null;          // id of the task being edited (null = adding new)
+let filters = { status: "all", category: "all", priority: "all", search: "", sort: "newest" };
+
+// Shortcut helper: document.getElementById
+const $ = (id) => document.getElementById(id);
+
+// ---------- 2. LOCAL STORAGE (data persistence) ----------
+function saveTasks() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); // array -> text
+}
+
+function loadTasks() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw !== null) {
+      tasks = JSON.parse(raw);   // text -> array
+    } else {
+      tasks = sampleTasks();     // first visit: show demo data
+      saveTasks();
+    }
+  } catch (e) {
+    tasks = sampleTasks();       // if saved data is corrupted, start fresh
+  }
+}
+
+// Returns a date string (YYYY-MM-DD) that is "n" days from today
+function dayOffset(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return d.getFullYear() + "-" + m + "-" + day;
+}
+
+// Demo tasks so the dashboard looks full on first launch
+function sampleTasks() {
+  const now = Date.now();
+  return [
+    { id: now + 1, title: "Submit Application Development assignment", description: "Upload the Word file and GitHub link to MS Teams.", priority: "High", category: "Study", due: dayOffset(1), completed: false, created: now - 6000 },
+    { id: now + 2, title: "Prepare class presentation", description: "Explain how localStorage and filters work.", priority: "High", category: "Project", due: dayOffset(2), completed: false, created: now - 5000 },
+    { id: now + 3, title: "Push code to GitHub", description: "Create repository and upload index.html.", priority: "Medium", category: "Project", due: dayOffset(0), completed: true, created: now - 4000 },
+    { id: now + 4, title: "Read chapter on JavaScript DOM", description: "", priority: "Medium", category: "Study", due: dayOffset(-2), completed: false, created: now - 3000 },
+    { id: now + 5, title: "Evening walk", description: "30 minutes to clear the mind.", priority: "Low", category: "Health", due: "", completed: true, created: now - 2000 },
+    { id: now + 6, title: "Reply to team emails", description: "", priority: "Low", category: "Work", due: dayOffset(3), completed: false, created: now - 1000 }
+  ];
+}
+
+// ---------- 3. SMALL HELPERS ----------
+// Escape user text so it can't inject HTML into the page (basic security)
+function esc(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function todayStr() { return dayOffset(0); }
+
+// A task is overdue if it has a due date in the past and is not completed
+function isOverdue(t) { return !t.completed && t.due && t.due < todayStr(); }
+
+function formatDate(str) {
+  if (!str) return "";
+  const [y, m, d] = str.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+// ---------- 4. FILTERING & SORTING ----------
+function getVisibleTasks() {
+  let list = tasks.filter((t) => {
+    // status filter (from sidebar)
+    if (filters.status === "pending" && t.completed) return false;
+    if (filters.status === "completed" && !t.completed) return false;
+    if (filters.status === "overdue" && !isOverdue(t)) return false;
+    // category & priority dropdowns
+    if (filters.category !== "all" && t.category !== filters.category) return false;
+    if (filters.priority !== "all" && t.priority !== filters.priority) return false;
+    // search text (matches title or description)
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      if (!(t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q))) return false;
+    }
+    return true;
+  });
+
+  // sorting
+  list.sort((a, b) => {
+    if (filters.sort === "title") return a.title.localeCompare(b.title);
+    if (filters.sort === "priority") return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+    if (filters.sort === "due") {
+      if (!a.due && !b.due) return 0;
+      if (!a.due) return 1;       // tasks without due date go last
+      if (!b.due) return -1;
+      return a.due.localeCompare(b.due);
+    }
+    return b.created - a.created; // newest first
+  });
+  return list;
+}
+
+// ---------- 5. RENDERING (drawing the UI) ----------
+function render() {
+  renderStats();
+  renderCharts();
+  renderTasks();
+}
+
+function renderStats() {
+  const total = tasks.length;
+  const done = tasks.filter((t) => t.completed).length;
+  const pending = total - done;
+  const overdue = tasks.filter(isOverdue).length;
+  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+
+  $("sTotal").textContent = total;
+  $("sPending").textContent = pending;
+  $("sDone").textContent = done;
+  $("sOverdue").textContent = overdue;
+
+  // sidebar counters
+  $("cntAll").textContent = total;
+  $("cntPending").textContent = pending;
+  $("cntDone").textContent = done;
+  $("cntOverdue").textContent = overdue;
+
+  // progress bar
+  $("progressFill").style.width = pct + "%";
+  $("progressText").textContent = pct + "% (" + done + " of " + total + " done)";
+}
+
+function renderCharts() {
+  const total = tasks.length;
+  const done = tasks.filter((t) => t.completed).length;
+  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+
+  // Donut chart: circle circumference = 2 * PI * r = 2 * 3.14159 * 50 ≈ 314
+  const circumference = 314;
+  $("donutFg").setAttribute("stroke-dasharray", (circumference * pct) / 100 + " " + circumference);
+  $("donutPct").textContent = pct + "%";
+
+  // Priority bars
+  const pColors = { High: "var(--high)", Medium: "var(--medium)", Low: "var(--low)" };
+  $("priorityChart").innerHTML = ["High", "Medium", "Low"].map((p) => {
+    const n = tasks.filter((t) => t.priority === p).length;
+    return barRow(p, n, total, pColors[p]);
+  }).join("");
+
+  // Category bars
+  $("categoryChart").innerHTML = CATEGORIES.map((c) => {
+    const n = tasks.filter((t) => t.category === c).length;
+    return barRow(c, n, total, "var(--primary)");
+  }).join("");
+
+  // Animate bars after they are inserted into the page
+  requestAnimationFrame(() => {
+    document.querySelectorAll(".bar-fill").forEach((el) => (el.style.width = el.dataset.w + "%"));
+  });
+}
+
+// Builds the HTML for one horizontal bar
+function barRow(label, count, total, color) {
+  const w = total === 0 ? 0 : Math.round((count / total) * 100);
+  return '<div class="bar-row"><div class="bar-label"><span>' + label + "</span><span>" + count +
+    '</span></div><div class="bar-track"><div class="bar-fill" data-w="' + w +
+    '" style="background:' + color + '"></div></div></div>';
+}
+
+function renderTasks() {
+  const list = getVisibleTasks();
+  const box = $("taskList");
+
+  if (list.length === 0) {
+    box.innerHTML = '<div class="empty"><div class="big">🗂️</div><h3>No tasks found</h3>' +
+      "<p>Try changing your filters or click “+ New Task” to add one.</p></div>";
+    return;
+  }
+
+  box.innerHTML = list.map((t) => {
+    const overdueTag = isOverdue(t) ? '<span class="tag overdue">Overdue</span>' : "";
+    const dueTag = t.due ? '<span class="tag">📅 ' + formatDate(t.due) + "</span>" : "";
+    const desc = t.description ? '<div class="task-desc">' + esc(t.description) + "</div>" : "";
+    return (
+      '<article class="task p-' + t.priority.toLowerCase() + (t.completed ? " completed" : "") + '" data-id="' + t.id + '">' +
+        '<input type="checkbox" class="check" ' + (t.completed ? "checked" : "") + ' data-action="toggle" aria-label="Mark complete">' +
+        '<div class="task-body">' +
+          '<div class="task-title">' + esc(t.title) + "</div>" + desc +
+          '<div class="tags">' +
+            '<span class="tag priority-' + t.priority.toLowerCase() + '">● ' + t.priority + "</span>" +
+            '<span class="tag">🏷️ ' + esc(t.category) + "</span>" + dueTag + overdueTag +
+          "</div>" +
+        "</div>" +
+        '<div class="task-actions">' +
+          '<button data-action="edit" title="Edit">✏️</button>' +
+          '<button data-action="delete" title="Delete">🗑️</button>' +
+        "</div>" +
+      "</article>"
+    );
+  }).join("");
+}
+
+// ---------- 6. TASK ACTIONS (add / edit / delete / complete) ----------
+function openModal(task) {
+  editingId = task ? task.id : null;
+  $("modalTitle").textContent = task ? "Edit Task" : "New Task";
+  $("saveBtn").textContent = task ? "Update Task" : "Save Task";
+  $("fTitle").value = task ? task.title : "";
+  $("fDesc").value = task ? task.description : "";
+  $("fPriority").value = task ? task.priority : "Medium";
+  $("fCategory").value = task ? task.category : "Study";
+  $("fDue").value = task ? task.due : "";
+  $("titleError").style.display = "none";
+  $("overlay").classList.add("open");
+  setTimeout(() => $("fTitle").focus(), 50);
+}
+
+function closeModal() {
+  $("overlay").classList.remove("open");
+  editingId = null;
+}
+
+function handleSave(e) {
+  e.preventDefault(); // stop the page from reloading
+  const title = $("fTitle").value.trim();
+
+  // simple validation
+  if (!title) {
+    $("titleError").style.display = "block";
+    $("fTitle").focus();
+    return;
+  }
+
+  const data = {
+    title: title,
+    description: $("fDesc").value.trim(),
+    priority: $("fPriority").value,
+    category: $("fCategory").value,
+    due: $("fDue").value
+  };
+
+  if (editingId !== null) {
+    // EDIT: find the task and overwrite its fields
+    const t = tasks.find((x) => x.id === editingId);
+    Object.assign(t, data);
+    showToast("Task updated ✏️");
+  } else {
+    // ADD: create a new task object and put it in the array
+    tasks.push({ id: Date.now(), completed: false, created: Date.now(), ...data });
+    showToast("Task added ✅");
+  }
+  saveTasks();
+  closeModal();
+  render();
+}
+
+function toggleTask(id) {
+  const t = tasks.find((x) => x.id === id);
+  t.completed = !t.completed;
+  saveTasks();
+  render();
+  showToast(t.completed ? "Marked as completed 🎉" : "Moved back to pending");
+}
+
+function deleteTask(id, element) {
+  if (!confirm("Delete this task permanently?")) return;
+  element.classList.add("removing");           // play the exit animation first
+  setTimeout(() => {
+    tasks = tasks.filter((x) => x.id !== id);  // keep everything except this task
+    saveTasks();
+    render();
+    showToast("Task deleted 🗑️");
+  }, 300);
+}
+
+// ---------- 7. EVENT LISTENERS ----------
+// One listener on the list handles clicks on every task (event delegation)
+$("taskList").addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-action]");
+  if (!btn) return;
+  const card = btn.closest(".task");
+  const id = Number(card.dataset.id);
+  const action = btn.dataset.action;
+  if (action === "toggle") toggleTask(id);
+  if (action === "edit") openModal(tasks.find((x) => x.id === id));
+  if (action === "delete") deleteTask(id, card);
+});
+
+$("addBtn").addEventListener("click", () => openModal(null));
+$("cancelBtn").addEventListener("click", closeModal);
+$("taskForm").addEventListener("submit", handleSave);
+$("overlay").addEventListener("click", (e) => { if (e.target === $("overlay")) closeModal(); }); // click outside = close
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });           // Esc = close
+
+// Search & filters re-render the list whenever the user changes them
+$("searchInput").addEventListener("input", (e) => { filters.search = e.target.value.trim(); renderTasks(); });
+$("categoryFilter").addEventListener("change", (e) => { filters.category = e.target.value; renderTasks(); });
+$("priorityFilter").addEventListener("change", (e) => { filters.priority = e.target.value; renderTasks(); });
+$("sortSelect").addEventListener("change", (e) => { filters.sort = e.target.value; renderTasks(); });
+
+// Sidebar status buttons
+const titles = { all: "All Tasks", pending: "Pending Tasks", completed: "Completed Tasks", overdue: "Overdue Tasks" };
+document.querySelectorAll(".nav-item[data-status]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-item[data-status]").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    filters.status = btn.dataset.status;
+    $("pageTitle").firstChild.textContent = (filters.status === "all" ? "Dashboard" : titles[filters.status]) + " ";
+    $("sidebar").classList.remove("open"); // close menu on mobile
+    renderTasks();
+  });
+});
+
+// Quick actions
+$("clearDoneBtn").addEventListener("click", () => {
+  const n = tasks.filter((t) => t.completed).length;
+  if (n === 0) { showToast("No completed tasks to clear"); return; }
+  if (!confirm("Remove all " + n + " completed tasks?")) return;
+  tasks = tasks.filter((t) => !t.completed);
+  saveTasks(); render(); showToast("Cleared " + n + " tasks 🧹");
+});
+
+$("resetBtn").addEventListener("click", () => {
+  if (!confirm("Replace all tasks with the demo data?")) return;
+  tasks = sampleTasks();
+  saveTasks(); render(); showToast("Demo data restored ♻️");
+});
+
+// Mobile sidebar toggle
+$("menuBtn").addEventListener("click", () => $("sidebar").classList.toggle("open"));
+
+// ---------- 8. DARK / LIGHT THEME ----------
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  $("themeBtn").textContent = theme === "dark" ? "☀️" : "🌙";
+  localStorage.setItem(THEME_KEY, theme);
+}
+
+$("themeBtn").addEventListener("click", () => {
+  const current = document.documentElement.getAttribute("data-theme");
+  applyTheme(current === "dark" ? "light" : "dark");
+});
+
+// ---------- 9. START THE APP ----------
+function init() {
+  // fill the category dropdown
+  $("categoryFilter").innerHTML = '<option value="all">All Categories</option>' +
+    CATEGORIES.map((c) => "<option>" + c + "</option>").join("");
+
+  // show today's date under the title
+  $("todayDate").textContent = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+  // restore saved theme (or follow the computer's preference)
+  const saved = localStorage.getItem(THEME_KEY);
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(saved || (prefersDark ? "dark" : "light"));
+
+  loadTasks();
+  render();
+}
+init();
+</script>
+</body>
+</html>
